@@ -1,0 +1,66 @@
+#include <iostream>
+#include <fstream>
+using namespace std;
+
+int main() {
+
+    int pilih;
+
+    do {
+
+        cout << "=========================================\n";
+        cout << "        SISTEM SEWA KENDARAAN\n";
+        cout << "=========================================\n";
+        cout << "1. Tambah Kendaraan\n";
+        cout << "2. Tampilkan Data Kendaraan\n";
+        cout << "3. Cari Kendaraan\n";
+        cout << "4. Harga Kendaraan\n";
+        cout << "5. Sewa Kendaraan\n";
+        cout << "6. Pengembalian Kendaraan\n";
+        cout << "7. Keluar\n";
+        cout << "=========================================\n";
+        cout << "Pilih Menu : ";
+        cin >> pilih;
+
+        switch(pilih) {
+
+            case 1:
+                cout << "\nMenu Tambah Kendaraan\n";
+                break;
+
+            case 2:
+                cout << "\nMenu Tampilkan Data\n";
+                break;
+
+            case 3:
+                cout << "\nMenu Cari Kendaraan\n";
+                break;
+
+            case 4:
+                cout << "\nMenu Harga Kendaraan\n";
+                break;
+
+            case 5:
+                cout << "\nMenu Sewa Kendaraan\n";
+                break;
+
+            case 6:
+                cout << "\nMenu Pengembalian Kendaraan\n";
+                break;
+
+            case 7:
+                cout << "\nProgram selesai...\n";
+                break;
+
+            default:
+                cout << "\nMenu tidak tersedia!\n";
+
+        }
+
+    } while(pilih != 7);
+
+    return 0;
+}
+
+
+
