@@ -2,599 +2,699 @@
 #include <fstream>
 #include <cstring>
 #include <cstdlib>
+#include <iomanip>
 using namespace std;
-
-const int MAX = 50;
+const int MAX = 100;
 
 struct Kendaraan {
     int    id;
     char   nama[50];
-    char   jenis[10];
+    char   jenis[10]; 
     char   plat[15];
-    double harga;
-    bool   tersedia;
+    double harga;       
+    bool   tersedia;    
 };
-
 struct Transaksi {
     int    id;
     int    idKendaraan;
     char   namaPenyewa[50];
-    char   tanggalSewa[12];
-    int    lamaSewa;
+    char   tanggalSewa[12];   
+    char   tanggalKembali[12];
+    int    lamaSewa;          
     double totalBayar;
+    char   metodePembayaran[30];
     bool   sudahKembali;
 };
-
-Kendaraan kendaraan[MAX];
-Transaksi transaksi[MAX];
+Kendaraan daftarKendaraan[MAX];
+Transaksi daftarTransaksi[MAX];
 int jmlKendaraan = 0;
 int jmlTransaksi = 0;
-
 
 void bersihkanBuffer() {
     char c;
     while (cin.get(c) && c != '\n');
 }
-
-void garis() {
-    cout << "----------------------------------------\n";
+void garis(char ch = '-', int len = 55) {
+    for (int i = 0; i < len; i++) cout << ch;
+    cout << "\n";
 }
-
-int cariKendaraan(int id) {
+void header(const char* judul) {
+    system("cls");
+    garis('=');
+    cout << "    RENTAL KENDARAAN  |  " << judul << "\n";
+    garis('=');
+}
+void pressEnter() {
+    cout << "\nTekan ENTER untuk kembali ke menu...";
+    bersihkanBuffer();
+}
+void tambahHari(const char* awal, int hari, char* hasil) {
+    int d, m, y;
+    d  = (awal[0]-'0')*10 + (awal[1]-'0');
+    m  = (awal[3]-'0')*10 + (awal[4]-'0');
+    y  = (awal[6]-'0')*1000 + (awal[7]-'0')*100
+       + (awal[8]-'0')*10   + (awal[9]-'0');
+    int hariPerBulan[] = {0,31,28,31,30,31,30,31,31,30,31,30,31};
+    bool kabisat = (y%4==0 && y%100!=0) || (y%400==0);
+    if (kabisat) hariPerBulan[2] = 29;
+    d += hari;
+    while (d > hariPerBulan[m]) {
+        d -= hariPerBulan[m];
+        m++;
+        if (m > 12) { m = 1; y++; kabisat = (y%4==0 && y%100!=0) || (y%400==0); hariPerBulan[2] = kabisat ? 29 : 28; }
+    }
+    hasil[0] = '0' + d/10; hasil[1] = '0' + d%10; hasil[2] = '/';
+    hasil[3] = '0' + m/10; hasil[4] = '0' + m%10; hasil[5] = '/';
+    hasil[6] = '0' + y/1000; hasil[7] = '0' + (y%1000)/100;
+    hasil[8] = '0' + (y%100)/10; hasil[9] = '0' + y%10;
+    hasil[10] = '\0';
+}
+void cetakRupiah(double nominal) {
+    cout << "Rp " << fixed << setprecision(0) << nominal;
+}
+int cariIdxKendaraan(int id) {
     for (int i = 0; i < jmlKendaraan; i++)
-        if (kendaraan[i].id == id) return i;
+        if (daftarKendaraan[i].id == id) return i;
     return -1;
 }
-
-int cariTransaksi(int id) {
+int cariIdxTransaksi(int id) {
     for (int i = 0; i < jmlTransaksi; i++)
-        if (transaksi[i].id == id) return i;
+        if (daftarTransaksi[i].id == id) return i;
     return -1;
 }
-
-
+bool platSudahAda(const char* plat) {
+    for (int i = 0; i < jmlKendaraan; i++)
+        if (strcmp(daftarKendaraan[i].plat, plat) == 0) return true;
+    return false;
+}
 void simpanData() {
     ofstream fk("kendaraan.txt");
-    if (!fk) { cout << "Gagal membuka file kendaraan.txt!\n"; return; }
+    if (!fk) { cout << "[ERROR] Gagal menulis kendaraan.txt!\n"; return; }
     fk << jmlKendaraan << "\n";
     for (int i = 0; i < jmlKendaraan; i++) {
-        fk << kendaraan[i].id       << "\n";
-        fk << kendaraan[i].nama     << "\n";
-        fk << kendaraan[i].jenis    << "\n";
-        fk << kendaraan[i].plat     << "\n";
-        fk << kendaraan[i].harga    << "\n";
-        fk << kendaraan[i].tersedia << "\n";
+        Kendaraan& k = daftarKendaraan[i];
+        fk << k.id       << "\n"
+           << k.nama     << "\n"
+           << k.jenis    << "\n"
+           << k.plat     << "\n"
+           << k.harga    << "\n"
+           << k.tersedia << "\n";
     }
     fk.close();
-
     ofstream ft("transaksi.txt");
-    if (!ft) { cout << "Gagal membuka file transaksi.txt!\n"; return; }
+    if (!ft) { cout << "[ERROR] Gagal menulis transaksi.txt!\n"; return; }
     ft << jmlTransaksi << "\n";
     for (int i = 0; i < jmlTransaksi; i++) {
-        ft << transaksi[i].id           << "\n";
-        ft << transaksi[i].idKendaraan  << "\n";
-        ft << transaksi[i].namaPenyewa  << "\n";
-        ft << transaksi[i].tanggalSewa  << "\n";
-        ft << transaksi[i].lamaSewa     << "\n";
-        ft << transaksi[i].totalBayar   << "\n";
-        ft << transaksi[i].sudahKembali << "\n";
+        Transaksi& t = daftarTransaksi[i];
+        ft << t.id               << "\n"
+           << t.idKendaraan      << "\n"
+           << t.namaPenyewa      << "\n"
+           << t.tanggalSewa      << "\n"
+           << t.tanggalKembali   << "\n"
+           << t.lamaSewa         << "\n"
+           << t.totalBayar       << "\n"
+           << t.metodePembayaran << "\n"
+           << t.sudahKembali     << "\n";
     }
     ft.close();
-    cout << "Data berhasil disimpan ke file.\n";
 }
-
 void muatData() {
     ifstream fk("kendaraan.txt");
     if (!fk) {
-        cout << "File kendaraan.txt tidak ditemukan. Mulai dengan data kosong.\n";
+        cout << "[INFO] kendaraan.txt belum ada. Mulai data kosong.\n";
     } else {
-        fk >> jmlKendaraan;
-        fk.ignore();
+        fk >> jmlKendaraan; fk.ignore();
         for (int i = 0; i < jmlKendaraan; i++) {
-            fk >> kendaraan[i].id;
-            fk.ignore();
-            fk.getline(kendaraan[i].nama,  50);
-            fk.getline(kendaraan[i].jenis, 10);
-            fk.getline(kendaraan[i].plat,  15);
-            fk >> kendaraan[i].harga >> kendaraan[i].tersedia;
-            fk.ignore();
+            Kendaraan& k = daftarKendaraan[i];
+            fk >> k.id; fk.ignore();
+            fk.getline(k.nama,  50);
+            fk.getline(k.jenis, 10);
+            fk.getline(k.plat,  15);
+            fk >> k.harga >> k.tersedia; fk.ignore();
         }
         fk.close();
-        cout << "Data kendaraan berhasil dimuat (" << jmlKendaraan << " data).\n";
+        cout << "[OK] " << jmlKendaraan << " kendaraan dimuat.\n";
     }
-
     ifstream ft("transaksi.txt");
     if (!ft) {
-        cout << "File transaksi.txt tidak ditemukan. Mulai dengan data kosong.\n";
+        cout << "[INFO] transaksi.txt belum ada. Mulai data kosong.\n";
     } else {
-        ft >> jmlTransaksi;
-        ft.ignore();
+        ft >> jmlTransaksi; ft.ignore();
         for (int i = 0; i < jmlTransaksi; i++) {
-            ft >> transaksi[i].id >> transaksi[i].idKendaraan;
-            ft.ignore();
-            ft.getline(transaksi[i].namaPenyewa, 50);
-            ft.getline(transaksi[i].tanggalSewa, 12);
-            ft >> transaksi[i].lamaSewa >> transaksi[i].totalBayar >> transaksi[i].sudahKembali;
-            ft.ignore();
+            Transaksi& t = daftarTransaksi[i];
+            ft >> t.id >> t.idKendaraan; ft.ignore();
+            ft.getline(t.namaPenyewa,      50);
+            ft.getline(t.tanggalSewa,      12);
+            ft.getline(t.tanggalKembali,   12);
+            ft >> t.lamaSewa >> t.totalBayar; ft.ignore();
+            ft.getline(t.metodePembayaran, 30);
+            ft >> t.sudahKembali; ft.ignore();
         }
         ft.close();
-        cout << "Data transaksi berhasil dimuat (" << jmlTransaksi << " data).\n";
+        cout << "[OK] " << jmlTransaksi << " transaksi dimuat.\n";
     }
 }
-
-
+void cetakKartuKendaraan(const Kendaraan& k) {
+    garis();
+    cout << "  ID Kendaraan : " << k.id << "\n";
+    cout << "  Nama         : " << k.nama  << "\n";
+    cout << "  Tipe         : " << k.jenis << "\n";
+    cout << "  Plat         : " << k.plat  << "\n";
+    cout << "  Harga/Hari   : "; cetakRupiah(k.harga); cout << "\n";
+    cout << "  Status       : " << (k.tersedia ? "[ TERSEDIA ]" : "[ SEDANG DISEWA ]") << "\n";
+    garis();
+}
 void tambahKendaraan() {
-    system("cls");
-    cout << "\n=== TAMBAH KENDARAAN ===\n";
+    header("TAMBAH KENDARAAN BARU");
     if (jmlKendaraan >= MAX) {
-        cout << "Data penuh! Tidak bisa menambah kendaraan.\n";
-        return;
+        cout << "[!] Data penuh. Kapasitas maksimal " << MAX << " kendaraan.\n";
+        pressEnter(); return;
     }
     Kendaraan k;
     k.id       = jmlKendaraan + 1;
     k.tersedia = true;
-
-  
     cout << "Nama Kendaraan           : ";
     cin.getline(k.nama, 50);
-    if (k.nama[0] == '\0') { cout << "Nama tidak boleh kosong!\n"; return; }
-
+    if (k.nama[0] == '\0') {
+        cout << "[!] Nama tidak boleh kosong!\n";
+        pressEnter(); return;
+    }
+    cout << "Tipe (1=Mobil, 2=Motor)  : ";
     int pilJenis;
-    cout << "Jenis (1=Mobil, 2=Motor) : ";
     if (!(cin >> pilJenis) || (pilJenis != 1 && pilJenis != 2)) {
-        cout << "Pilihan tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
+        cout << "[!] Pilihan tipe tidak valid!\n";
+        cin.clear(); bersihkanBuffer(); pressEnter(); return;
     }
     bersihkanBuffer();
-
-
-    if (pilJenis == 1) strcpy(k.jenis, "Mobil");
-    else               strcpy(k.jenis, "Motor");
-
+    strcpy(k.jenis, (pilJenis == 1) ? "Mobil" : "Motor");
     cout << "Nomor Plat               : ";
     cin.getline(k.plat, 15);
-    if (k.plat[0] == '\0') { cout << "Plat tidak boleh kosong!\n"; return; }
-
-    cout << "Harga/Hari (Rp)          : ";
+    if (k.plat[0] == '\0') {
+        cout << "[!] Plat tidak boleh kosong!\n";
+        pressEnter(); return;
+    }
+    if (platSudahAda(k.plat)) {
+        cout << "[!] Plat \"" << k.plat << "\" sudah terdaftar di sistem!\n";
+        pressEnter(); return;
+    }
+    cout << "Harga Sewa / Hari (Rp)   : ";
     if (!(cin >> k.harga) || k.harga <= 0) {
-        cout << "Harga tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
+        cout << "[!] Harga tidak valid!\n";
+        cin.clear(); bersihkanBuffer(); pressEnter(); return;
     }
     bersihkanBuffer();
-
-    kendaraan[jmlKendaraan++] = k;
-    cout << "Kendaraan berhasil ditambahkan! ID: " << k.id << "\n";
+    garis();
+    cout << "  Preview data kendaraan:\n";
+    cetakKartuKendaraan(k);
+    cout << "Simpan kendaraan ini? (1=Ya, 2=Batal) : ";
+    int konfirm;
+    if (!(cin >> konfirm)) { cin.clear(); bersihkanBuffer(); pressEnter(); return; }
+    bersihkanBuffer();
+    if (konfirm != 1) { cout << "[!] Penambahan dibatalkan.\n"; pressEnter(); return; }
+    daftarKendaraan[jmlKendaraan++] = k;
     simpanData();
+    cout << "\n[OK] Kendaraan berhasil ditambahkan! ID: " << k.id << "\n";
+    pressEnter();
 }
-
-
 void tampilkanData() {
-    system("cls");
-    cout << "\n=== DATA KENDARAAN ===\n";
-    if (jmlKendaraan == 0) { cout << "Belum ada data kendaraan.\n"; return; }
-    garis();
-    for (int i = 0; i < jmlKendaraan; i++) {
-        Kendaraan& k = kendaraan[i];
-        cout << "ID       : " << k.id    << "\n";
-        cout << "Nama     : " << k.nama  << "\n";
-        cout << "Jenis    : " << k.jenis << "\n";
-        cout << "Plat     : " << k.plat  << "\n";
-        cout << "Harga    : Rp " << k.harga << " / hari\n";
-        cout << "Status   : " << (k.tersedia ? "Tersedia" : "Sedang Disewa") << "\n";
-        garis();
+    header("DAFTAR SEMUA KENDARAAN");
+    if (jmlKendaraan == 0) {
+        cout << "Belum ada data kendaraan.\n";
+        pressEnter(); return;
     }
-    cout << "Total kendaraan: " << jmlKendaraan << "\n";
+    for (int i = 0; i < jmlKendaraan; i++)
+        cetakKartuKendaraan(daftarKendaraan[i]);
+    cout << "Total : " << jmlKendaraan << " kendaraan terdaftar.\n";
+    pressEnter();
 }
-
 void cariKendaraanMenu() {
-    system("cls");
-    cout << "\n=== CARI KENDARAAN ===\n";
-    if (jmlKendaraan == 0) { cout << "Belum ada data kendaraan.\n"; return; }
-    int idCari;
-    cout << "Masukkan ID kendaraan : ";
-    if (!(cin >> idCari)) {
-        cout << "Input tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
+    header("CARI KENDARAAN");
+    if (jmlKendaraan == 0) {
+        cout << "Belum ada data kendaraan.\n";
+        pressEnter(); return;
+    }
+    cout << "Cari berdasarkan:\n";
+    cout << "  1. ID Kendaraan\n";
+    cout << "  2. Nama Kendaraan\n";
+    cout << "  3. Nomor Plat\n";
+    cout << "Pilih : ";
+    int metode;
+    if (!(cin >> metode) || metode < 1 || metode > 3) {
+        cout << "[!] Pilihan tidak valid!\n";
+        cin.clear(); bersihkanBuffer(); pressEnter(); return;
     }
     bersihkanBuffer();
-    cout << "Mencari ID " << idCari << "...\n";
-    int i = cariKendaraan(idCari);
-    if (i == -1) {
-        cout << "Kendaraan dengan ID " << idCari << " tidak ditemukan.\n";
-        return;
+    bool ketemu = false;
+    if (metode == 1) {
+        cout << "Masukkan ID : ";
+        int idCari;
+        if (!(cin >> idCari)) { cin.clear(); bersihkanBuffer(); pressEnter(); return; }
+        bersihkanBuffer();
+        int idx = cariIdxKendaraan(idCari);
+        if (idx != -1) { cetakKartuKendaraan(daftarKendaraan[idx]); ketemu = true; }
+    } else if (metode == 2) {
+        cout << "Masukkan nama (sebagian) : ";
+        char kw[50]; cin.getline(kw, 50);
+        for (int i = 0; i < jmlKendaraan; i++) {
+            char haystack[50], needle[50];
+            for (int j = 0; j < (int)strlen(daftarKendaraan[i].nama)+1; j++)
+                haystack[j] = tolower(daftarKendaraan[i].nama[j]);
+            for (int j = 0; j < (int)strlen(kw)+1; j++)
+                needle[j] = tolower(kw[j]);
+            if (strstr(haystack, needle)) {
+                cetakKartuKendaraan(daftarKendaraan[i]); ketemu = true;
+            }
+        }
+    } else {
+        cout << "Masukkan nomor plat : ";
+        char platCari[15]; cin.getline(platCari, 15);
+        for (int i = 0; i < jmlKendaraan; i++) {
+            if (strcmp(daftarKendaraan[i].plat, platCari) == 0) {
+                cetakKartuKendaraan(daftarKendaraan[i]); ketemu = true;
+            }
+        }
     }
-    Kendaraan& k = kendaraan[i];
-    cout << "Kendaraan ditemukan!\n";
-    garis();
-    cout << "ID       : " << k.id    << "\n";
-    cout << "Nama     : " << k.nama  << "\n";
-    cout << "Jenis    : " << k.jenis << "\n";
-    cout << "Plat     : " << k.plat  << "\n";
-    cout << "Harga    : Rp " << k.harga << " / hari\n";
-    cout << "Status   : " << (k.tersedia ? "Tersedia" : "Sedang Disewa") << "\n";
-    garis();
+    if (!ketemu) cout << "[!] Kendaraan tidak ditemukan.\n";
+    pressEnter();
 }
-
-
 void hargaKendaraan() {
-    system("cls");
-    cout << "\n=== SIMULASI HARGA SEWA ===\n";
-    if (jmlKendaraan == 0) { cout << "Belum ada data kendaraan.\n"; return; }
-
-    cout << "Daftar kendaraan tersedia:\n";
-    garis();
-    bool adaTersedia = false;
-    for (int i = 0; i < jmlKendaraan; i++) {
-        if (kendaraan[i].tersedia) {
-            cout << "ID " << kendaraan[i].id << " - " << kendaraan[i].nama
-                 << " | Rp " << kendaraan[i].harga << "/hari\n";
-            adaTersedia = true;
+    int sub = 0;
+    do {
+        header("DAFTAR HARGA KENDARAAN");
+        if (jmlKendaraan == 0) {
+            cout << "Belum ada data kendaraan.\n";
+            pressEnter(); return;
         }
-    }
-    garis();
-    if (!adaTersedia) { cout << "Semua kendaraan sedang disewa.\n"; return; }
-
-    int idPilih;
-    cout << "Masukkan ID kendaraan : ";
-    if (!(cin >> idPilih)) {
-        cout << "Input tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
-    }
-    bersihkanBuffer();
-
-    int i = cariKendaraan(idPilih);
-    if (i == -1) { cout << "Kendaraan tidak ditemukan.\n"; return; }
-
-
-    if (!kendaraan[i].tersedia) {
-        cout << "Kendaraan tersebut sedang disewa, tidak bisa disimulasikan.\n";
-        return;
-    }
-
-    int hari;
-    cout << "Lama sewa (hari)      : ";
-    if (!(cin >> hari) || hari <= 0) {
-        cout << "Jumlah hari tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
-    }
-    bersihkanBuffer();
-
-    double total = kendaraan[i].harga * hari;
-    cout << "Estimasi total biaya  : Rp " << total << " (" << hari << " hari)\n";
+        cout << left
+             << setw(5)  << "No"
+             << setw(25) << "Nama Kendaraan"
+             << setw(8)  << "Tipe"
+             << setw(18) << "Harga/Hari"
+             << "Status\n";
+        garis();
+        for (int i = 0; i < jmlKendaraan; i++) {
+            Kendaraan& k = daftarKendaraan[i];
+            cout << left
+                 << setw(5)  << k.id
+                 << setw(25) << k.nama
+                 << setw(8)  << k.jenis;
+            cout << "Rp " << setw(14) << fixed << setprecision(0) << k.harga;
+            cout << (k.tersedia ? "Tersedia" : "Disewa") << "\n";
+        }
+        garis();
+        cout << "\n  0. Kembali ke Menu Utama\n";
+        cout << "Pilih : ";
+        if (!(cin >> sub)) { cin.clear(); bersihkanBuffer(); sub = -1; }
+        bersihkanBuffer();
+    } while (sub != 0);
 }
-
 void sewaKendaraan() {
-    system("cls");
-    cout << "\n=== SEWA KENDARAAN ===\n";
-    if (jmlKendaraan == 0) { cout << "Belum ada data kendaraan.\n"; return; }
-    if (jmlTransaksi >= MAX) { cout << "Data transaksi penuh!\n"; return; }
-
-    bool adaTersedia = false;
-    cout << "Kendaraan tersedia:\n";
+    header("SEWA KENDARAAN");
+    if (jmlKendaraan == 0) {
+        cout << "Belum ada data kendaraan.\n"; pressEnter(); return;
+    }
+    if (jmlTransaksi >= MAX) {
+        cout << "[!] Data transaksi penuh!\n"; pressEnter(); return;
+    }
+    bool ada = false;
+    cout << "Kendaraan yang tersedia:\n";
+    cout << left << setw(6) << "ID" << setw(25) << "Nama" << setw(8) << "Tipe" << "Harga/Hari\n";
     garis();
     for (int i = 0; i < jmlKendaraan; i++) {
-        if (kendaraan[i].tersedia) {
-            cout << "ID " << kendaraan[i].id << " - " << kendaraan[i].nama
-                 << " (" << kendaraan[i].jenis << ")"
-                 << " | Rp " << kendaraan[i].harga << "/hari\n";
-            adaTersedia = true;
+        if (daftarKendaraan[i].tersedia) {
+            Kendaraan& k = daftarKendaraan[i];
+            cout << left << setw(6) << k.id << setw(25) << k.nama << setw(8) << k.jenis;
+            cout << "Rp " << fixed << setprecision(0) << k.harga << "/hari\n";
+            ada = true;
         }
     }
     garis();
-    if (!adaTersedia) { cout << "Semua kendaraan sedang disewa.\n"; return; }
-
+    if (!ada) { cout << "[!] Semua kendaraan sedang disewa.\n"; pressEnter(); return; }
     Transaksi t;
     t.id           = jmlTransaksi + 1;
     t.sudahKembali = false;
-
-    cout << "ID kendaraan yang disewa  : ";
+    cout << "\nID Kendaraan yang ingin disewa : ";
     if (!(cin >> t.idKendaraan)) {
-        cout << "Input tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
+        cout << "[!] Input tidak valid!\n";
+        cin.clear(); bersihkanBuffer(); pressEnter(); return;
     }
     bersihkanBuffer();
-
-    int idx = cariKendaraan(t.idKendaraan);
-    if (idx == -1) { cout << "Kendaraan tidak ditemukan.\n"; return; }
-    if (!kendaraan[idx].tersedia) { cout << "Kendaraan sedang tidak tersedia.\n"; return; }
-
-    cout << "Nama penyewa              : "; cin.getline(t.namaPenyewa, 50);
-    if (t.namaPenyewa[0] == '\0') { cout << "Nama tidak boleh kosong!\n"; return; }
-
-    cout << "Tanggal sewa (DD/MM/YYYY) : "; cin.getline(t.tanggalSewa, 12);
-    if (t.tanggalSewa[0] == '\0') { cout << "Tanggal tidak boleh kosong!\n"; return; }
-
-    cout << "Lama sewa (hari)          : ";
+    int idx = cariIdxKendaraan(t.idKendaraan);
+    if (idx == -1) {
+        cout << "[!] Kendaraan tidak ditemukan.\n"; pressEnter(); return;
+    }
+    if (!daftarKendaraan[idx].tersedia) {
+        cout << "[!] Kendaraan ini sedang tidak tersedia / sudah disewa.\n";
+        pressEnter(); return;
+    }
+    cout << "Nama Penyewa               : ";
+    cin.getline(t.namaPenyewa, 50);
+    if (t.namaPenyewa[0] == '\0') {
+        cout << "[!] Nama tidak boleh kosong!\n"; pressEnter(); return;
+    }
+    cout << "Tanggal Sewa (DD/MM/YYYY)  : ";
+    cin.getline(t.tanggalSewa, 12);
+    if (strlen(t.tanggalSewa) != 10 || t.tanggalSewa[2] != '/' || t.tanggalSewa[5] != '/') {
+        cout << "[!] Format tanggal salah! Gunakan DD/MM/YYYY\n"; pressEnter(); return;
+    }
+    cout << "Lama Sewa (hari)           : ";
     if (!(cin >> t.lamaSewa) || t.lamaSewa <= 0) {
-        cout << "Lama sewa tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
+        cout << "[!] Lama sewa tidak valid!\n";
+        cin.clear(); bersihkanBuffer(); pressEnter(); return;
     }
     bersihkanBuffer();
-
-    t.totalBayar = kendaraan[idx].harga * t.lamaSewa;
+    tambahHari(t.tanggalSewa, t.lamaSewa, t.tanggalKembali);
+    t.totalBayar = daftarKendaraan[idx].harga * t.lamaSewa;
     garis();
-    cout << "ID Transaksi : " << t.id                << "\n";
-    cout << "Kendaraan    : " << kendaraan[idx].nama << "\n";
-    cout << "Penyewa      : " << t.namaPenyewa        << "\n";
-    cout << "Tanggal Sewa : " << t.tanggalSewa        << "\n";
-    cout << "Lama Sewa    : " << t.lamaSewa            << " hari\n";
-    cout << "Total Bayar  : Rp " << t.totalBayar      << "\n";
-    garis();
-
-    int konfirm;
-    cout << "Konfirmasi sewa? (1=Ya, 2=Batal) : ";
-    if (!(cin >> konfirm)) { cin.clear(); bersihkanBuffer(); return; }
+    cout << "  Metode Pembayaran:\n";
+    cout << "  1. Transfer Bank (BCA / Mandiri / BNI)\n";
+    cout << "  2. QRIS / Dompet Digital (GoPay, OVO, Dana)\n";
+    cout << "  3. Tunai di Tempat\n";
+    cout << "  4. Kartu Kredit / Debit\n";
+    cout << "Pilih metode : ";
+    int pilMetode;
+    if (!(cin >> pilMetode) || pilMetode < 1 || pilMetode > 4) {
+        cout << "[!] Metode tidak valid!\n";
+        cin.clear(); bersihkanBuffer(); pressEnter(); return;
+    }
     bersihkanBuffer();
-    if (konfirm != 1) { cout << "Transaksi dibatalkan.\n"; return; }
-
-    transaksi[jmlTransaksi++] = t;
-    kendaraan[idx].tersedia   = false;
-    cout << "Sewa berhasil! ID Transaksi: " << t.id << "\n";
+    const char* metodeList[] = {"Transfer Bank", "QRIS/Dompet Digital", "Tunai", "Kartu Kredit/Debit"};
+    strcpy(t.metodePembayaran, metodeList[pilMetode - 1]);
+    garis('=');
+    cout << "             STRUK PEMESANAN RENTAL\n";
+    garis('=');
+    cout << "  No. Transaksi    : TRX-" << setw(4) << setfill('0') << t.id << setfill(' ') << "\n";
+    cout << "  Kendaraan        : " << daftarKendaraan[idx].nama
+         << " (" << daftarKendaraan[idx].jenis << ")\n";
+    cout << "  Plat             : " << daftarKendaraan[idx].plat << "\n";
+    cout << "  Penyewa          : " << t.namaPenyewa << "\n";
+    cout << "  Tanggal Sewa     : " << t.tanggalSewa << "\n";
+    cout << "  Tanggal Kembali  : " << t.tanggalKembali << "\n";
+    cout << "  Lama Sewa        : " << t.lamaSewa << " hari\n";
+    cout << "  Harga/Hari       : "; cetakRupiah(daftarKendaraan[idx].harga); cout << "\n";
+    garis();
+    cout << "  TOTAL BAYAR      : "; cetakRupiah(t.totalBayar); cout << "\n";
+    cout << "  Metode Bayar     : " << t.metodePembayaran << "\n";
+    garis('=');
+    cout << "  Status Pembayaran: [ MENUNGGU KONFIRMASI ]\n";
+    garis('=');
+    cout << "\nKonfirmasi & Bayar? (1=Ya / 2=Batal) : ";
+    int konfirm;
+    if (!(cin >> konfirm)) { cin.clear(); bersihkanBuffer(); pressEnter(); return; }
+    bersihkanBuffer();
+    if (konfirm != 1) {
+        cout << "[!] Transaksi dibatalkan.\n"; pressEnter(); return;
+    }
+    daftarTransaksi[jmlTransaksi++] = t;
+    daftarKendaraan[idx].tersedia   = false;
     simpanData();
+    cout << "\n[OK] Pembayaran dikonfirmasi!\n";
+    cout << "[OK] Kendaraan berhasil disewa. Selamat berkendara!\n";
+    cout << "     Simpan No. Transaksi Anda: TRX-" << setw(4) << setfill('0') << t.id << setfill(' ') << "\n";
+    pressEnter();
 }
-
-
 void pengembalianKendaraan() {
-    system("cls");
-    cout << "\n=== PENGEMBALIAN KENDARAAN ===\n";
-    if (jmlTransaksi == 0) { cout << "Belum ada data transaksi.\n"; return; }
-
+    header("PENGEMBALIAN KENDARAAN");
+    if (jmlTransaksi == 0) {
+        cout << "Belum ada data transaksi.\n"; pressEnter(); return;
+    }
     bool adaAktif = false;
-    cout << "Transaksi aktif:\n";
+    cout << "Transaksi yang sedang berjalan:\n";
+    cout << left << setw(10) << "No.Trx" << setw(22) << "Kendaraan"
+         << setw(20) << "Penyewa" << setw(12) << "Tgl Sewa" << "Tgl Kembali\n";
     garis();
     for (int i = 0; i < jmlTransaksi; i++) {
-        if (!transaksi[i].sudahKembali) {
-            int idx = cariKendaraan(transaksi[i].idKendaraan);
-            cout << "ID Transaksi " << transaksi[i].id
-                 << " | Kendaraan: " << (idx != -1 ? kendaraan[idx].nama : "?")
-                 << " | Penyewa: "   << transaksi[i].namaPenyewa << "\n";
+        if (!daftarTransaksi[i].sudahKembali) {
+            Transaksi& t = daftarTransaksi[i];
+            int kIdx = cariIdxKendaraan(t.idKendaraan);
+            cout << left
+                 << "TRX-" << setw(6) << setfill('0') << t.id << setfill(' ')
+                 << setw(22) << (kIdx != -1 ? daftarKendaraan[kIdx].nama : "?")
+                 << setw(20) << t.namaPenyewa
+                 << setw(12) << t.tanggalSewa
+                 << t.tanggalKembali << "\n";
             adaAktif = true;
         }
     }
     garis();
-    if (!adaAktif) { cout << "Tidak ada kendaraan yang sedang disewa.\n"; return; }
-
+    if (!adaAktif) {
+        cout << "Tidak ada kendaraan yang sedang disewa.\n"; pressEnter(); return;
+    }
+    cout << "\nMasukkan No. Transaksi (angka saja) : ";
     int idTrx;
-    cout << "Masukkan ID transaksi : ";
     if (!(cin >> idTrx)) {
-        cout << "Input tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
+        cout << "[!] Input tidak valid!\n";
+        cin.clear(); bersihkanBuffer(); pressEnter(); return;
     }
     bersihkanBuffer();
-
-    int tIdx = cariTransaksi(idTrx);
-    if (tIdx == -1) { cout << "ID transaksi tidak ditemukan.\n"; return; }
-    if (transaksi[tIdx].sudahKembali) { cout << "Kendaraan sudah dikembalikan.\n"; return; }
-
-    int keterlambatan;
+    int tIdx = cariIdxTransaksi(idTrx);
+    if (tIdx == -1) { cout << "[!] Nomor transaksi tidak ditemukan.\n"; pressEnter(); return; }
+    if (daftarTransaksi[tIdx].sudahKembali) {
+        cout << "[!] Kendaraan ini sudah dikembalikan sebelumnya.\n"; pressEnter(); return;
+    }
     cout << "Hari keterlambatan (0 jika tepat waktu) : ";
-    if (!(cin >> keterlambatan) || keterlambatan < 0) {
-        cout << "Input tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
+    int telat;
+    if (!(cin >> telat) || telat < 0) {
+        cout << "[!] Input tidak valid!\n";
+        cin.clear(); bersihkanBuffer(); pressEnter(); return;
     }
     bersihkanBuffer();
-
-    int    kIdx      = cariKendaraan(transaksi[tIdx].idKendaraan);
-    double denda     = 0;
-    if (keterlambatan > 0 && kIdx != -1)
-        denda = keterlambatan * kendaraan[kIdx].harga * 1.5;
-
-    double totalAkhir = transaksi[tIdx].totalBayar + denda;
+    int    kIdx      = cariIdxKendaraan(daftarTransaksi[tIdx].idKendaraan);
+    double hargaUnit = (kIdx != -1) ? daftarKendaraan[kIdx].harga : 0;
+    double denda     = (telat > 0) ? telat * hargaUnit * 1.5 : 0;
+    double totalAkhir = daftarTransaksi[tIdx].totalBayar + denda;
+    garis('=');
+    cout << "           STRUK PENGEMBALIAN KENDARAAN\n";
+    garis('=');
+    cout << "  No. Transaksi    : TRX-" << setw(4) << setfill('0') << daftarTransaksi[tIdx].id << setfill(' ') << "\n";
+    if (kIdx != -1) cout << "  Kendaraan        : " << daftarKendaraan[kIdx].nama << "\n";
+    cout << "  Penyewa          : " << daftarTransaksi[tIdx].namaPenyewa     << "\n";
+    cout << "  Tgl Sewa         : " << daftarTransaksi[tIdx].tanggalSewa     << "\n";
+    cout << "  Tgl Kembali      : " << daftarTransaksi[tIdx].tanggalKembali  << "\n";
+    cout << "  Lama Sewa        : " << daftarTransaksi[tIdx].lamaSewa << " hari\n";
     garis();
-    cout << "Penyewa      : " << transaksi[tIdx].namaPenyewa   << "\n";
-    cout << "Total Sewa   : Rp " << transaksi[tIdx].totalBayar << "\n";
-    if (denda > 0) cout << "Denda        : Rp " << denda       << "\n";
-    cout << "TOTAL BAYAR  : Rp " << totalAkhir                  << "\n";
+    cout << "  Biaya Sewa       : "; cetakRupiah(daftarTransaksi[tIdx].totalBayar); cout << "\n";
+    if (denda > 0) {
+        cout << "  Keterlambatan    : " << telat << " hari\n";
+        cout << "  Denda (x1.5)     : "; cetakRupiah(denda); cout << "\n";
+    }
     garis();
-
+    cout << "  TOTAL TAGIHAN    : "; cetakRupiah(totalAkhir); cout << "\n";
+    garis('=');
+    cout << "\nKonfirmasi pengembalian? (1=Ya / 2=Batal) : ";
     int konfirm;
-    cout << "Konfirmasi pengembalian? (1=Ya, 2=Batal) : ";
-    if (!(cin >> konfirm)) { cin.clear(); bersihkanBuffer(); return; }
+    if (!(cin >> konfirm)) { cin.clear(); bersihkanBuffer(); pressEnter(); return; }
     bersihkanBuffer();
-    if (konfirm != 1) { cout << "Pengembalian dibatalkan.\n"; return; }
-
-    transaksi[tIdx].sudahKembali = true;
-    transaksi[tIdx].totalBayar   = totalAkhir;
-    if (kIdx != -1) kendaraan[kIdx].tersedia = true;
-    cout << "Pengembalian berhasil! Terima kasih.\n";
+    if (konfirm != 1) { cout << "[!] Pengembalian dibatalkan.\n"; pressEnter(); return; }
+    daftarTransaksi[tIdx].sudahKembali = true;
+    daftarTransaksi[tIdx].totalBayar   = totalAkhir;
+    if (kIdx != -1) daftarKendaraan[kIdx].tersedia = true;
     simpanData();
+    cout << "\n[OK] Kendaraan berhasil dikembalikan. Terima kasih!\n";
+    pressEnter();
 }
-
-
 void sortingKendaraan() {
-    system("cls");
-    cout << "\n=== SORTING KENDARAAN ===\n";
-    if (jmlKendaraan == 0) { cout << "Belum ada data kendaraan.\n"; return; }
-
-    int urutan;
-    cout << "Urutkan berdasarkan harga:\n";
-    cout << "  1. Termurah ke Termahal\n";
-    cout << "  2. Termahal ke Termurah\n";
+    header("SORTING KENDARAAN");
+    if (jmlKendaraan == 0) {
+        cout << "Belum ada data kendaraan.\n"; pressEnter(); return;
+    }
+    cout << "Urutkan berdasarkan:\n";
+    cout << "  1. Nama (A → Z)\n";
+    cout << "  2. Nama (Z → A)\n";
+    cout << "  3. Harga (Termurah → Termahal)\n";
+    cout << "  4. Harga (Termahal → Termurah)\n";
     cout << "Pilih : ";
-    if (!(cin >> urutan) || (urutan != 1 && urutan != 2)) {
-        cout << "Pilihan tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
+    int pilih;
+    if (!(cin >> pilih) || pilih < 1 || pilih > 4) {
+        cout << "[!] Pilihan tidak valid!\n";
+        cin.clear(); bersihkanBuffer(); pressEnter(); return;
     }
     bersihkanBuffer();
-
-
-    Kendaraan temp[MAX];
-    for (int i = 0; i < jmlKendaraan; i++) temp[i] = kendaraan[i];
+    Kendaraan tmp[MAX];
+    for (int i = 0; i < jmlKendaraan; i++) tmp[i] = daftarKendaraan[i];
 
     for (int i = 0; i < jmlKendaraan - 1; i++) {
         for (int j = 0; j < jmlKendaraan - 1 - i; j++) {
-            bool perluTukar = (urutan == 1)
-                ? temp[j].harga > temp[j+1].harga
-                : temp[j].harga < temp[j+1].harga;
-            if (perluTukar) {
-                Kendaraan swap = temp[j];
-                temp[j]        = temp[j+1];
-                temp[j+1]      = swap;
-            }
+            bool tukar = false;
+            if (pilih == 1) tukar = (strcmp(tmp[j].nama, tmp[j+1].nama) > 0);
+            if (pilih == 2) tukar = (strcmp(tmp[j].nama, tmp[j+1].nama) < 0);
+            if (pilih == 3) tukar = (tmp[j].harga > tmp[j+1].harga);
+            if (pilih == 4) tukar = (tmp[j].harga < tmp[j+1].harga);
+            if (tukar) { Kendaraan sw = tmp[j]; tmp[j] = tmp[j+1]; tmp[j+1] = sw; }
         }
     }
-
-    cout << "Hasil pengurutan:\n";
+    const char* labelSort[] = {"Nama A→Z","Nama Z→A","Harga Termurah","Harga Termahal"};
+    cout << "\nHasil Sorting: " << labelSort[pilih-1] << "\n";
+    cout << left << setw(5) << "Rank" << setw(6) << "ID" << setw(25) << "Nama"
+         << setw(8) << "Tipe" << setw(18) << "Harga/Hari" << "Status\n";
     garis();
     for (int i = 0; i < jmlKendaraan; i++) {
-        cout << i+1 << ". [ID " << temp[i].id << "] " << temp[i].nama
-             << " (" << temp[i].jenis << ")"
-             << " | Rp " << temp[i].harga << "/hari"
-             << " | " << (temp[i].tersedia ? "Tersedia" : "Disewa") << "\n";
+        Kendaraan& k = tmp[i];
+        cout << left << setw(5) << i+1 << setw(6) << k.id << setw(25) << k.nama
+             << setw(8) << k.jenis;
+        cout << "Rp " << setw(14) << fixed << setprecision(0) << k.harga;
+        cout << (k.tersedia ? "Tersedia" : "Disewa") << "\n";
     }
     garis();
+    pressEnter();
 }
-
 void hapusData() {
-    system("cls");
-    cout << "\n=== HAPUS DATA ===\n";
-    cout << " 1. Hapus Kendaraan\n";
-    cout << " 2. Hapus Transaksi\n";
+    header("HAPUS DATA");
+    cout << "Hapus data:\n";
+    cout << "  1. Kendaraan (hanya yang tidak sedang disewa)\n";
+    cout << "  2. Transaksi (hanya yang sudah selesai)\n";
+    cout << "  0. Kembali\n";
     cout << "Pilih : ";
     int pilih;
-    if (!(cin >> pilih) || (pilih != 1 && pilih != 2)) {
-        cout << "Pilihan tidak valid!\n";
-        cin.clear(); bersihkanBuffer(); return;
-    }
+    if (!(cin >> pilih)) { cin.clear(); bersihkanBuffer(); return; }
     bersihkanBuffer();
+    if (pilih == 0) return;
 
     if (pilih == 1) {
-        if (jmlKendaraan == 0) { cout << "Belum ada data kendaraan.\n"; return; }
+        if (jmlKendaraan == 0) {
+            cout << "Belum ada data kendaraan.\n"; pressEnter(); return;
+        }
         cout << "\nDaftar kendaraan:\n";
         garis();
         for (int i = 0; i < jmlKendaraan; i++) {
-            cout << "ID " << kendaraan[i].id
-                 << " - " << kendaraan[i].nama
-                 << " (" << kendaraan[i].jenis << ")"
-                 << " | " << (kendaraan[i].tersedia ? "Tersedia" : "Sedang Disewa") << "\n";
+            Kendaraan& k = daftarKendaraan[i];
+            cout << "ID " << k.id << " - " << k.nama
+                 << " [" << k.jenis << "]"
+                 << "  Status: " << (k.tersedia ? "Tersedia" : "SEDANG DISEWA") << "\n";
         }
         garis();
-
-        int idHapus;
         cout << "Masukkan ID kendaraan yang dihapus : ";
-        if (!(cin >> idHapus)) {
-            cout << "Input tidak valid!\n";
-            cin.clear(); bersihkanBuffer(); return;
-        }
-        bersihkanBuffer();
-
-        int idx = cariKendaraan(idHapus);
-        if (idx == -1) { cout << "ID kendaraan tidak ditemukan.\n"; return; }
-        if (!kendaraan[idx].tersedia) {
-            cout << "Tidak bisa menghapus kendaraan yang sedang disewa!\n";
-            return;
-        }
-
-        cout << "Yakin hapus kendaraan \"" << kendaraan[idx].nama << "\"? (1=Ya, 2=Batal) : ";
-        int konfirm;
-        if (!(cin >> konfirm)) { cin.clear(); bersihkanBuffer(); return; }
-        bersihkanBuffer();
-        if (konfirm != 1) { cout << "Penghapusan dibatalkan.\n"; return; }
-
-    
-        for (int i = idx; i < jmlKendaraan - 1; i++)
-            kendaraan[i] = kendaraan[i + 1];
-        jmlKendaraan--;
-
-
-        for (int i = 0; i < jmlKendaraan; i++)
-            kendaraan[i].id = i + 1;
-
-        cout << "Kendaraan berhasil dihapus!\n";
-        simpanData();
-    }
-    else {
-        if (jmlTransaksi == 0) { cout << "Belum ada data transaksi.\n"; return; }
-        cout << "\nDaftar transaksi:\n";
-        garis();
-        for (int i = 0; i < jmlTransaksi; i++) {
-            int idx = cariKendaraan(transaksi[i].idKendaraan);
-            cout << "ID Transaksi " << transaksi[i].id
-                 << " | Kendaraan: " << (idx != -1 ? kendaraan[idx].nama : "?")
-                 << " | Penyewa: "   << transaksi[i].namaPenyewa
-                 << " | Status: "    << (transaksi[i].sudahKembali ? "Selesai" : "Aktif") << "\n";
-        }
-        garis();
-
         int idHapus;
-        cout << "Masukkan ID transaksi yang dihapus : ";
-        if (!(cin >> idHapus)) {
-            cout << "Input tidak valid!\n";
-            cin.clear(); bersihkanBuffer(); return;
-        }
+        if (!(cin >> idHapus)) { cin.clear(); bersihkanBuffer(); pressEnter(); return; }
         bersihkanBuffer();
-
-        int tIdx = cariTransaksi(idHapus);
-        if (tIdx == -1) { cout << "ID transaksi tidak ditemukan.\n"; return; }
-        if (!transaksi[tIdx].sudahKembali) {
-            cout << "Tidak bisa menghapus transaksi yang masih aktif!\n";
-            cout << "Selesaikan pengembalian terlebih dahulu.\n";
-            return;
+        int idx = cariIdxKendaraan(idHapus);
+        if (idx == -1) { cout << "[!] ID tidak ditemukan.\n"; pressEnter(); return; }
+        if (!daftarKendaraan[idx].tersedia) {
+            cout << "[!] Kendaraan sedang disewa. Tidak bisa dihapus!\n"; pressEnter(); return;
         }
-
-        cout << "Yakin hapus transaksi ID " << idHapus << "? (1=Ya, 2=Batal) : ";
+        cout << "Yakin hapus \"" << daftarKendaraan[idx].nama << "\"? (1=Ya / 2=Batal) : ";
         int konfirm;
-        if (!(cin >> konfirm)) { cin.clear(); bersihkanBuffer(); return; }
+        if (!(cin >> konfirm)) { cin.clear(); bersihkanBuffer(); pressEnter(); return; }
         bersihkanBuffer();
-        if (konfirm != 1) { cout << "Penghapusan dibatalkan.\n"; return; }
+        
+        if (konfirm != 1) { cout << "[!] Dibatalkan.\n"; pressEnter(); return; }
+        for (int i = idx; i < jmlKendaraan - 1; i++)
+            daftarKendaraan[i] = daftarKendaraan[i + 1];
+        jmlKendaraan--;
+        for (int i = 0; i < jmlKendaraan; i++) daftarKendaraan[i].id = i + 1;
+        
+        simpanData();
+        cout << "[OK] Kendaraan berhasil dihapus!\n";
+    } else if (pilih == 2) {
+        if (jmlTransaksi == 0) {
+            cout << "Belum ada data transaksi.\n"; pressEnter(); return;
+        }
+        cout << "\nDaftar transaksi selesai:\n";
+        garis();
+        bool adaSelesai = false;
+        for (int i = 0; i < jmlTransaksi; i++) {
+            if (daftarTransaksi[i].sudahKembali) {
+                int kIdx = cariIdxKendaraan(daftarTransaksi[i].idKendaraan);
+                cout << "TRX-" << setw(4) << setfill('0') << daftarTransaksi[i].id << setfill(' ')
+                     << "  Kendaraan: " << (kIdx != -1 ? daftarKendaraan[kIdx].nama : "?")
+                     << "  Penyewa: "   << daftarTransaksi[i].namaPenyewa << "\n";
+                adaSelesai = true;
+            }
+        }
+        garis();
+        if (!adaSelesai) {
+            cout << "[!] Tidak ada transaksi yang sudah selesai.\n"; pressEnter(); return;
+        }
+        cout << "Masukkan ID transaksi yang dihapus : ";
+        int idHapus;
+        if (!(cin >> idHapus)) { cin.clear(); bersihkanBuffer(); pressEnter(); return; }
+        bersihkanBuffer();
+
+        int tIdx = cariIdxTransaksi(idHapus);
+        if (tIdx == -1) { cout << "[!] ID transaksi tidak ditemukan.\n"; pressEnter(); return; }
+        if (!daftarTransaksi[tIdx].sudahKembali) {
+            cout << "[!] Transaksi masih aktif. Selesaikan pengembalian dulu!\n"; pressEnter(); return;
+        }
+
+        cout << "Yakin hapus transaksi TRX-" << setw(4) << setfill('0') << idHapus
+             << setfill(' ') << "? (1=Ya / 2=Batal) : ";
+        int konfirm;
+        if (!(cin >> konfirm)) { cin.clear(); bersihkanBuffer(); pressEnter(); return; }
+        bersihkanBuffer();
+        if (konfirm != 1) { cout << "[!] Dibatalkan.\n"; pressEnter(); return; }
 
         for (int i = tIdx; i < jmlTransaksi - 1; i++)
-            transaksi[i] = transaksi[i + 1];
+            daftarTransaksi[i] = daftarTransaksi[i + 1];
         jmlTransaksi--;
-
-        for (int i = 0; i < jmlTransaksi; i++)
-            transaksi[i].id = i + 1;
-
-        cout << "Transaksi berhasil dihapus!\n";
+        for (int i = 0; i < jmlTransaksi; i++) daftarTransaksi[i].id = i + 1;
         simpanData();
+        cout << "[OK] Transaksi berhasil dihapus!\n";
+    } else {
+        cout << "[!] Pilihan tidak valid.\n";
     }
+    pressEnter();
 }
-
-
 int main() {
-    cout << "Memuat data...\n";
+    cout << "==============================\n";
+    cout << "   RENTAL KENDARAAN - BOOT   \n";
+    cout << "==============================\n";
     muatData();
+    cout << "\nSistem siap!\n";
+    cout << "Tekan ENTER untuk masuk ke menu...";
+    bersihkanBuffer();
 
     int pilih;
     do {
         system("cls");
-        cout << "\n==============================\n";
-        cout << "   SISTEM SEWA KENDARAAN     \n";
-        cout << "==============================\n";
-        cout << " 1. Tambah Kendaraan\n";
-        cout << " 2. Tampilkan Data Kendaraan\n";
-        cout << " 3. Cari Kendaraan\n";
-        cout << " 4. Harga Kendaraan\n";
-        cout << " 5. Sewa Kendaraan\n";
-        cout << " 6. Pengembalian Kendaraan\n";
-        cout << " 7. Sorting Kendaraan\n";
-        cout << " 8. Hapus Data\n";
-        cout << " 9. Keluar\n";
-        cout << "==============================\n";
-        cout << "Pilih Menu : ";
-
+        cout << "\n";
+        garis('=');
+        cout << "        RENTAL KENDARAAN SYSTEM        \n";
+        cout << "         Sewa Mudah, Aman, Cepat       \n";
+        garis('=');
+        cout << "  [1]  Tambah Kendaraan\n";
+        cout << "  [2]  Tampilkan Semua Kendaraan\n";
+        cout << "  [3]  Cari Kendaraan\n";
+        cout << "  [4]  Daftar Harga Kendaraan\n";
+        cout << "  [5]  Sewa Kendaraan\n";
+        cout << "  [6]  Pengembalian Kendaraan\n";
+        cout << "  [7]  Sorting Kendaraan\n";
+        cout << "  [8]  Hapus Data\n";
+        cout << "  [9]  Keluar\n";
+        garis('=');
+        cout << "  Kendaraan terdaftar : " << jmlKendaraan
+             << "   |   Transaksi aktif : ";
+        int aktif = 0;
+        for (int i = 0; i < jmlTransaksi; i++)
+            if (!daftarTransaksi[i].sudahKembali) aktif++;
+        cout << aktif << "\n";
+        garis('=');
+        cout << "  Pilih Menu [1-9] : ";
         if (!(cin >> pilih)) {
-            cout << "Input tidak valid! Masukkan angka 1-9.\n";
+            cout << "[!] Input tidak valid!\n";
             cin.clear(); bersihkanBuffer();
-            pilih = 0; continue;
+            pilih = 0; pressEnter(); continue;
         }
         bersihkanBuffer();
 
-        if (pilih < 1 || pilih > 9) {
-            cout << "Menu tidak tersedia! Pilih 1-9.\n";
-            continue;
-        }
-
         switch (pilih) {
-            case 1: tambahKendaraan();       break;
-            case 2: tampilkanData();         break;
-            case 3: cariKendaraanMenu();     break;
-            case 4: hargaKendaraan();        break;
-            case 5: sewaKendaraan();         break;
-            case 6: pengembalianKendaraan(); break;
-            case 7: sortingKendaraan();      break;
-            case 8: hapusData();             break;
-            case 9: cout << "\nProgram selesai. Terima kasih!\n"; break;
+            case 1: tambahKendaraan();        break;
+            case 2: tampilkanData();          break;
+            case 3: cariKendaraanMenu();      break;
+            case 4: hargaKendaraan();         break;
+            case 5: sewaKendaraan();          break;
+            case 6: pengembalianKendaraan();  break;
+            case 7: sortingKendaraan();       break;
+            case 8: hapusData();              break;
+            case 9:
+                system("cls");
+                garis('=');
+                cout << "   Terima kasih telah menggunakan\n";
+                cout << "       RENTAL KENDARAAN SYSTEM\n";
+                garis('=');
+                break;
+            default:
+                cout << "[!] Pilihan tidak tersedia! Masukkan 1-9.\n";
+                pressEnter();
         }
     } while (pilih != 9);
 
